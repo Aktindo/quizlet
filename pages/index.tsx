@@ -1,21 +1,14 @@
+import React, { useEffect, useState } from "react";
+
 import Head from "next/head";
-import React, { useCallback, useEffect, useState } from "react";
 import * as axiosPkg from "axios";
+
+import { QuizAPI } from "../interfaces/QuizApi";
 import { TailSpin } from "react-loader-spinner";
+import { Check } from "react-feather";
+import { Footer, Navbar, ProgressBar, Spinner } from "../components";
 
 const axios = axiosPkg.default;
-
-export interface QuizAPI {
-  category?: string;
-  id?: string;
-  correctAnswer?: string;
-  incorrectAnswers?: string[];
-  question?: string;
-  tags?: string[];
-  type?: string;
-  difficulty?: string;
-  regions?: any[];
-}
 
 export default function Home() {
   const [data, setData] = useState<QuizAPI[] | null>(null);
@@ -23,6 +16,8 @@ export default function Home() {
   const [selectedOption, setSelectedOption] = useState<string>("");
   const [correctAnswers, setCorrectAnswers] = useState<number>(0);
   const [options, setOptions] = useState<string[]>([]);
+  const [answerIsCorrect, setAnswerIsCorrect] = useState<boolean>(false);
+  const [verified, setVerified] = useState<boolean>(false);
 
   useEffect(() => {
     getQuestion().then((res) => {
@@ -46,14 +41,24 @@ export default function Home() {
   const nextQuestion = (num: number) => {
     if (num >= 4) {
       return setQNum(null);
+    } else {
+      setOptions([]);
+      setSelectedOption("");
+      setQNum(num + 1);
+      setAnswerIsCorrect(false);
+      setVerified(false);
     }
+  };
 
-    if (data![num].correctAnswer === selectedOption)
+  const verifyQuestion = (num: number) => {
+    if (data![num].correctAnswer === selectedOption) {
       setCorrectAnswers(correctAnswers + 1);
-
-    setOptions([]);
-    setSelectedOption("");
-    setQNum(num + 1);
+      setAnswerIsCorrect(true);
+      setVerified(true);
+    } else {
+      setAnswerIsCorrect(false);
+      setVerified(true);
+    }
   };
 
   const refreshPage = () => {
@@ -62,6 +67,8 @@ export default function Home() {
     setSelectedOption("");
     setCorrectAnswers(0);
     setOptions([]);
+    setVerified(false);
+    setAnswerIsCorrect(false);
     getQuestion().then((res) => {
       const resData: QuizAPI[] = res.data;
       setData(resData || []);
@@ -96,27 +103,26 @@ export default function Home() {
         <title>Quizlet | Aktindo</title>
       </Head>
 
-      <div className="navbar justify-center bg-zinc-600 text-neutral-content rounded-b-xl shadow-md">
-        <a className="btn btn-ghost uppercase text-xl tracking-widest">
-          Quizlet
-        </a>
-      </div>
+      <Navbar />
 
       {data?.length ? (
         <div className="quizbox mt-20 grid justify-center">
-          <div className="card w-96 bg-zinc-600 text-white shadow-md border-secondary border-2">
+          <div className="card max-w-4xl card-bordered w-auto mx-4 bg-zinc-600 text-white shadow-md border-secondary border-2">
             <div className="card-body">
               <div className="">
                 {qNum !== null && data.length ? (
                   <>
-                    <progress
-                      className="progress progress-primary w-auto"
-                      value={qNum! > 0 ? ((qNum! + 1) / 5) * 100 : 0}
-                      max="100"
-                    ></progress>
-                    <div className="bg-zinc-800 p-5 rounded-xl">
-                      <h2 className="card-title">Question {qNum + 1} / 5</h2>
-                      <p className="mt-2 font-semibold">
+                    <ProgressBar
+                      type="questions"
+                      correctAnswers={correctAnswers}
+                      questionNumber={qNum}
+                      questions={5}
+                    />
+                    <div className="bg-zinc-700 p-5 rounded-xl">
+                      <h2 className="card-title text-base font-medium">
+                        Question {qNum + 1} / 5
+                      </h2>
+                      <p className="mt-2 text-lg md:text-2xl sm:text-xl font-bold">
                         {data[qNum].question}
                       </p>
                     </div>
@@ -125,14 +131,15 @@ export default function Home() {
                   <div>
                     <h2 className="card-title">Quiz Completed!</h2>
                     <p className="font-medium mt-5">
-                      You got {correctAnswers} out of 5 questions correct.
+                      You got {correctAnswers} out of 5 questions correct
                     </p>
 
-                    <progress
-                      className="progress progress-success bg-error"
-                      value={(correctAnswers / 5) * 100}
-                      max="100"
-                    ></progress>
+                    <ProgressBar
+                      type="result"
+                      correctAnswers={correctAnswers}
+                      questionNumber={qNum!}
+                      questions={5}
+                    />
 
                     <div className="card-actions justify-center mt-5">
                       <button
@@ -151,9 +158,22 @@ export default function Home() {
                   <div>
                     {data &&
                       options!.map((value, key) => (
-                        <div className="form-control" key={key}>
+                        <div
+                          className={`form-control p-2 my-2 rounded-md shadow-lg ${
+                            selectedOption === value && verified
+                              ? answerIsCorrect
+                                ? "bg-green-500"
+                                : "bg-error"
+                              : `hover:bg-zinc-700 transition ${
+                                  selectedOption === value
+                                    ? "bg-zinc-700"
+                                    : "bg-zinc-500"
+                                }`
+                          }`}
+                          key={key}
+                        >
                           <label className="label cursor-pointer">
-                            <span className="label-text text-white">
+                            <span className="label-text text-white md:text-base break-normal">
                               <span className="font-semibold">
                                 {optionNames[key]}
                               </span>{" "}
@@ -162,21 +182,43 @@ export default function Home() {
                             <input
                               type="radio"
                               name="radio-10"
-                              className="radio border-white checked:bg-primary"
+                              className={`radio border-white ${
+                                verified
+                                  ? answerIsCorrect
+                                    ? "checked:bg-green-600"
+                                    : "checked:bg-error"
+                                  : "checked:bg-primary"
+                              }`}
                               onClick={() => setSelectedOption(value)}
                               checked={selectedOption === value}
                               readOnly
+                              disabled={verified}
                             />
                           </label>
                         </div>
                       ))}
+
                     <div className="card-actions justify-end mt-5">
-                      <button
-                        className="btn btn-primary text-white"
-                        onClick={() => nextQuestion(qNum!)}
-                      >
-                        Next
-                      </button>
+                      {verified ? (
+                        <button
+                          className={`btn ${
+                            answerIsCorrect
+                              ? "btn bg-green-500 hover:bg-green-600"
+                              : "btn-error"
+                          } text-white`}
+                          onClick={() => nextQuestion(qNum!)}
+                        >
+                          Next
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-primary text-white"
+                          onClick={() => verifyQuestion(qNum!)}
+                          disabled={selectedOption.length ? false : true}
+                        >
+                          <Check />
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -185,22 +227,9 @@ export default function Home() {
           </div>
         </div>
       ) : (
-        <div className="h-screen flex items-center justify-center">
-          <TailSpin
-            height="80"
-            width="80"
-            color="rgb(167 139 250)"
-            ariaLabel="tail-spin-loading"
-            radius="1"
-            wrapperStyle={{}}
-            wrapperClass=""
-            visible={true}
-          />
-        </div>
+        <Spinner />
       )}
-      <div className="footer fixed left-0 bottom-0 w-screen p-2">
-        Aktindo &copy; {new Date().getFullYear()}
-      </div>
+      <Footer />
     </div>
   );
 
