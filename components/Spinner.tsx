@@ -2,7 +2,7 @@ import { TailSpin } from "react-loader-spinner";
 
 export function Spinner() {
   return (
-    <div className="h-screen flex mt-20 justify-center">
+    <div className="flex h-5/6 items-center justify-center">
       <TailSpin
         height="80"
         width="80"
